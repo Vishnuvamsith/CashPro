@@ -1,0 +1,1 @@
+alter table payments add column version_tag bigint not null default 1;
