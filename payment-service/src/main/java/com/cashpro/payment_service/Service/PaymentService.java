@@ -2,10 +2,12 @@ package com.cashpro.payment_service.Service;
 
 import com.cashpro.payment_service.DTO.CreatePaymentRequest;
 import com.cashpro.payment_service.DTO.PaymentResponse;
+import com.cashpro.payment_service.Entity.OutboxEvent;
 import com.cashpro.payment_service.Entity.Payment;
 import com.cashpro.payment_service.Entity.PaymentStatus;
 import com.cashpro.payment_service.Exceptions.DBexception;
 import com.cashpro.payment_service.Exceptions.DuplicatePaymentException;
+import com.cashpro.payment_service.Repo.OutboxEventRepository;
 import com.cashpro.payment_service.Repo.PaymentRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import java.util.UUID;
 public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final StringRedisTemplate redisTemplate;
+    private final OutboxEventRepository outboxEventRepository;
     private final Logger log= LoggerFactory.getLogger(PaymentService.class);
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest data, String idemKey) {
@@ -35,6 +38,7 @@ public class PaymentService {
                         "PROCESSING",
                         Duration.ofHours(24)
                 );
+        log.warn("acquired status:{}", acquired);
 
         if (!Boolean.TRUE.equals(acquired)) {
             throw new DuplicatePaymentException(
@@ -54,6 +58,29 @@ public class PaymentService {
                     .build();
 
             Payment savedPayment = paymentRepository.save(payment);
+            OutboxEvent event = OutboxEvent.builder()
+                    .aggregateType("PAYMENT")
+                    .aggregateId(savedPayment.getPaymentId())
+                    .eventType("PAYMENT_RECEIVED")
+                    .payload("""
+                {
+                  "paymentId": "%s",
+                  "clientId": "%s",
+                  "amount": %s,
+                  "currency": "%s",
+                  "status": "%s"
+                }
+                """.formatted(
+                            savedPayment.getPaymentId(),
+                            savedPayment.getClientId(),
+                            savedPayment.getAmount(),
+                            savedPayment.getCurrency(),
+                            savedPayment.getStatus()
+                    ))
+                    .status("PENDING")
+                    .build();
+
+            outboxEventRepository.save(event);
 
             return new PaymentResponse(
                     savedPayment.getPaymentId(),
