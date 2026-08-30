@@ -27,6 +27,7 @@
 
     <modules>
         <module>payment-service</module>
+        <module>Payment-processing-service</module>
     </modules>
 
     <dependencyManagement>
