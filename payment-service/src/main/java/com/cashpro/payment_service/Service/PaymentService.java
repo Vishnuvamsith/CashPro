@@ -1,6 +1,7 @@
 package com.cashpro.payment_service.Service;
 
 import com.cashpro.payment_service.DTO.CreatePaymentRequest;
+import com.cashpro.payment_service.DTO.Payload;
 import com.cashpro.payment_service.DTO.PaymentResponse;
 import com.cashpro.payment_service.Entity.OutboxEvent;
 import com.cashpro.payment_service.Entity.Payment;
@@ -58,25 +59,18 @@ public class PaymentService {
                     .build();
 
             Payment savedPayment = paymentRepository.save(payment);
+            Payload payload=Payload.builder()
+                    .paymentId(savedPayment.getPaymentId())
+                    .clientId(savedPayment.getClientId())
+                    .amount(savedPayment.getAmount())
+                    .currency(savedPayment.getCurrency())
+                    .status(savedPayment.getStatus().name())
+                    .build();
             OutboxEvent event = OutboxEvent.builder()
                     .aggregateType("PAYMENT")
                     .aggregateId(savedPayment.getPaymentId())
                     .eventType("PAYMENT_RECEIVED")
-                    .payload("""
-                {
-                  "paymentId": "%s",
-                  "clientId": "%s",
-                  "amount": %s,
-                  "currency": "%s",
-                  "status": "%s"
-                }
-                """.formatted(
-                            savedPayment.getPaymentId(),
-                            savedPayment.getClientId(),
-                            savedPayment.getAmount(),
-                            savedPayment.getCurrency(),
-                            savedPayment.getStatus()
-                    ))
+                    .payload(payload)
                     .status("PENDING")
                     .build();
 

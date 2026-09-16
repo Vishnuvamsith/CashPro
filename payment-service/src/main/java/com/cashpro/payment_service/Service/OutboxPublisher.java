@@ -1,5 +1,6 @@
 package com.cashpro.payment_service.Service;
 
+import com.cashpro.payment_service.DTO.Payload;
 import com.cashpro.payment_service.Repo.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -13,7 +14,7 @@ import java.time.Instant;
 public class OutboxPublisher {
 
     private final OutboxEventRepository repository;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final KafkaTemplate<String, Payload> kafkaTemplate;
 
     @Scheduled(fixedDelay = 5000)
     public void publishPendingEvents() {

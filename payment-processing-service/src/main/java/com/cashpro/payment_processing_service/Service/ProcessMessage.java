@@ -1,19 +1,22 @@
 package com.cashpro.payment_processing_service.Service;
 
-import lombok.RequiredArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
+import com.cashpro.payment_processing_service.DTO.Payload;
+
+import lombok.RequiredArgsConstructor;
+
 @Service
 @RequiredArgsConstructor
 public class ProcessMessage {
     private final Logger log= LoggerFactory.getLogger(ProcessMessage.class);
     private final Producer producer;
-    @KafkaListener(topics = "payment-events", groupId = "payment-processing-service")
-    public void listen(ConsumerRecord<String,String> message) {
+    @KafkaListener(topics = "payment-events")
+    public void listen(ConsumerRecord<String, Payload> message) {
         log.info("Receive message {}",message.offset());
         log.info("Receive message {}",message.headers());
         log.info("Receive message {}",message.value());
@@ -25,10 +28,10 @@ public class ProcessMessage {
                     "status": "PROCESSED"
                 }
                 """.formatted(message.key());
-        throw new RuntimeException(
-                "Simulated payment-processing failure"
-        );
-//        producer.publish(message.key(),payload);
-//        log.info("Published PAYMENT_PROCESSED for: {}", message.key());
+//        throw new RuntimeException(
+//                "Simulated payment-processing failure"
+        //);
+        producer.publish(message.key(),payload);
+        log.info("Published PAYMENT_PROCESSED for: {}", message.key());
     }
 }

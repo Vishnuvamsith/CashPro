@@ -1,7 +1,10 @@
 package com.cashpro.payment_service.Entity;
 
+import com.cashpro.payment_service.DTO.Payload;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -32,8 +35,9 @@ public class OutboxEvent {
     @Column(name="event_type",nullable = false)
     private String eventType;
 
-    @Column(name="payload", nullable = false, columnDefinition = "TEXT")
-    private String payload;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
+    private Payload payload;
 
     @Column(name="status", nullable = false)
     private String status;

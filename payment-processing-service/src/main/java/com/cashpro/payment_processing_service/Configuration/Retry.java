@@ -16,7 +16,7 @@ public class Retry {
         DeadLetterPublishingRecoverer recoverer=new DeadLetterPublishingRecoverer(
                 template,(record,exception)->
 
-            new TopicPartition("payment-processed"+"-dlq",record.partition()));
+            new TopicPartition(record.topic() + "-dlq", record.partition()));
             FixedBackOff backOff=new FixedBackOff(1000L,2L);
         return new DefaultErrorHandler(recoverer,backOff);
     }

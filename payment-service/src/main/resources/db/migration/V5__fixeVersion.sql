@@ -1,0 +1,2 @@
+ALTER TABLE payments DROP COLUMN version;
+ALTER TABLE payments ALTER COLUMN version_tag DROP DEFAULT;
