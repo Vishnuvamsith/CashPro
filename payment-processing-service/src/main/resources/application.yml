@@ -4,25 +4,21 @@ spring:
   application:
     name: payment-processing-service
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: localhost:9092,localhost:9095
     properties:
-      security.protocol: SASL_SSL
-      sasl.mechanism: PLAIN
-      sasl.jaas.config: >
-        org.apache.kafka.common.security.plain.PlainLoginModule required
-        username='${KAFKA_API_KEY}'
-        password='${KAFKA_API_SECRET}';
+      schema.registry.url: http://localhost:8088
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
+      properties:
+        auto.register.schemas: true
     consumer:
       group-id: payment-processing-service-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
       properties:
-        spring.json.value.default.type: "com.cashpro.payment_processing_service.DTO.Payload"
-        spring.json.trusted.packages: "com.cashpro.payment_processing_service.DTO"
+        specific.avro.reader: true
 management:
   endpoints:
     web:

@@ -19,24 +19,16 @@ spring:
       host: localhost
       port: 6379
   kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    bootstrap-servers: localhost:9092,localhost:9095
     properties:
-      security.protocol: SASL_SSL
-      sasl.mechanism: PLAIN
-      sasl.jaas.config: >
-        org.apache.kafka.common.security.plain.PlainLoginModule required
-        username='${KAFKA_API_KEY}'
-        password='${KAFKA_API_SECRET}';
-
+      schema.registry.url: http://localhost:8088
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
       properties:
-        spring.json.add.type.headers: false
+        auto.register.schemas: true
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
-
-

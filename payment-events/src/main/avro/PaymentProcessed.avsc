@@ -1,0 +1,12 @@
+{
+  "type": "record",
+  "name": "PaymentProcessed",
+  "namespace": "com.cashpro.events",
+  "fields": [
+    {
+      "name": "paymentId",
+      "type": { "type": "string", "logicalType": "uuid" }
+    },
+    { "name": "status", "type": "string" }
+  ]
+}

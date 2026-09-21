@@ -2,7 +2,7 @@ package com.cashpro.payment_service.Controller;
 
 import com.cashpro.payment_service.DTO.CreatePaymentRequest;
 import com.cashpro.payment_service.DTO.PaymentResponse;
-import com.cashpro.payment_service.Kafka.KafkaTestProducer;
+//import com.cashpro.payment_service.Kafka.KafkaTestProducer;
 import com.cashpro.payment_service.Service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +16,7 @@ import java.util.UUID;
 public class PaymentController {
 
     private final PaymentService service;
-    private final KafkaTestProducer kafkaTestProducer;
+    //private final KafkaTestProducer kafkaTestProducer;
 
     @PostMapping
     public PaymentResponse create(
@@ -31,10 +31,10 @@ public class PaymentController {
         return service.get(id);
     }
 
-    @PostMapping("/send/event")
-    public String sendMessage()
-    {
-        kafkaTestProducer.sendTestMessage();
-        return "message sent successfully";
-    }
+//    @PostMapping("/send/event")
+//    public String sendMessage()
+//    {
+//        kafkaTestProducer.sendTestMessage();
+//        return "message sent successfully";
+//    }
 }
