@@ -13,10 +13,10 @@ import org.apache.avro.message.SchemaStore;
 
 @org.apache.avro.specific.AvroGenerated
 public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = 8268626292848261539L;
+  private static final long serialVersionUID = -3395068070557170792L;
 
 
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"PaymentReceived\",\"namespace\":\"com.cashpro.events\",\"fields\":[{\"name\":\"paymentId\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"clientId\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"amount\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":2}},{\"name\":\"currency\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"status\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}}]}");
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"PaymentReceived\",\"namespace\":\"com.cashpro.events\",\"fields\":[{\"name\":\"paymentId\",\"type\":{\"type\":\"string\",\"logicalType\":\"uuid\"}},{\"name\":\"clientId\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"amount\",\"type\":{\"type\":\"bytes\",\"logicalType\":\"decimal\",\"precision\":18,\"scale\":2}},{\"name\":\"currency\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"}},{\"name\":\"status\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"default\":\"RECEIVED\"},{\"name\":\"temp\",\"type\":{\"type\":\"string\",\"avro.java.string\":\"String\"},\"default\":\"temp\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
 
   private static final SpecificData MODEL$ = new SpecificData();
@@ -81,6 +81,7 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
   private java.math.BigDecimal amount;
   private java.lang.String currency;
   private java.lang.String status;
+  private java.lang.String temp;
 
   /**
    * Default constructor.  Note that this does not initialize fields
@@ -96,13 +97,15 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
    * @param amount The new value for amount
    * @param currency The new value for currency
    * @param status The new value for status
+   * @param temp The new value for temp
    */
-  public PaymentReceived(java.util.UUID paymentId, java.lang.String clientId, java.math.BigDecimal amount, java.lang.String currency, java.lang.String status) {
+  public PaymentReceived(java.util.UUID paymentId, java.lang.String clientId, java.math.BigDecimal amount, java.lang.String currency, java.lang.String status, java.lang.String temp) {
     this.paymentId = paymentId;
     this.clientId = clientId;
     this.amount = amount;
     this.currency = currency;
     this.status = status;
+    this.temp = temp;
   }
 
   @Override
@@ -120,6 +123,7 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
     case 2: return amount;
     case 3: return currency;
     case 4: return status;
+    case 5: return temp;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -129,6 +133,7 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
       new org.apache.avro.Conversions.UUIDConversion(),
       null,
       new org.apache.avro.Conversions.DecimalConversion(),
+      null,
       null,
       null,
       null
@@ -149,6 +154,7 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
     case 2: amount = (java.math.BigDecimal)value$; break;
     case 3: currency = value$ != null ? value$.toString() : null; break;
     case 4: status = value$ != null ? value$.toString() : null; break;
+    case 5: temp = value$ != null ? value$.toString() : null; break;
     default: throw new IndexOutOfBoundsException("Invalid index: " + field$);
     }
   }
@@ -239,6 +245,23 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
   }
 
   /**
+   * Gets the value of the 'temp' field.
+   * @return The value of the 'temp' field.
+   */
+  public java.lang.String getTemp() {
+    return temp;
+  }
+
+
+  /**
+   * Sets the value of the 'temp' field.
+   * @param value the value to set.
+   */
+  public void setTemp(java.lang.String value) {
+    this.temp = value;
+  }
+
+  /**
    * Creates a new PaymentReceived RecordBuilder.
    * @return A new PaymentReceived RecordBuilder
    */
@@ -284,6 +307,7 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
     private java.math.BigDecimal amount;
     private java.lang.String currency;
     private java.lang.String status;
+    private java.lang.String temp;
 
     /** Creates a new Builder */
     private Builder() {
@@ -316,6 +340,10 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
         this.status = data().deepCopy(fields()[4].schema(), other.status);
         fieldSetFlags()[4] = other.fieldSetFlags()[4];
       }
+      if (isValidValue(fields()[5], other.temp)) {
+        this.temp = data().deepCopy(fields()[5].schema(), other.temp);
+        fieldSetFlags()[5] = other.fieldSetFlags()[5];
+      }
     }
 
     /**
@@ -343,6 +371,10 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
       if (isValidValue(fields()[4], other.status)) {
         this.status = data().deepCopy(fields()[4].schema(), other.status);
         fieldSetFlags()[4] = true;
+      }
+      if (isValidValue(fields()[5], other.temp)) {
+        this.temp = data().deepCopy(fields()[5].schema(), other.temp);
+        fieldSetFlags()[5] = true;
       }
     }
 
@@ -546,6 +578,46 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
       return this;
     }
 
+    /**
+      * Gets the value of the 'temp' field.
+      * @return The value.
+      */
+    public java.lang.String getTemp() {
+      return temp;
+    }
+
+
+    /**
+      * Sets the value of the 'temp' field.
+      * @param value The value of 'temp'.
+      * @return This builder.
+      */
+    public com.cashpro.events.PaymentReceived.Builder setTemp(java.lang.String value) {
+      validate(fields()[5], value);
+      this.temp = value;
+      fieldSetFlags()[5] = true;
+      return this;
+    }
+
+    /**
+      * Checks whether the 'temp' field has been set.
+      * @return True if the 'temp' field has been set, false otherwise.
+      */
+    public boolean hasTemp() {
+      return fieldSetFlags()[5];
+    }
+
+
+    /**
+      * Clears the value of the 'temp' field.
+      * @return This builder.
+      */
+    public com.cashpro.events.PaymentReceived.Builder clearTemp() {
+      temp = null;
+      fieldSetFlags()[5] = false;
+      return this;
+    }
+
     @Override
     @SuppressWarnings("unchecked")
     public PaymentReceived build() {
@@ -556,6 +628,7 @@ public class PaymentReceived extends org.apache.avro.specific.SpecificRecordBase
         record.amount = fieldSetFlags()[2] ? this.amount : (java.math.BigDecimal) defaultValue(fields()[2]);
         record.currency = fieldSetFlags()[3] ? this.currency : (java.lang.String) defaultValue(fields()[3]);
         record.status = fieldSetFlags()[4] ? this.status : (java.lang.String) defaultValue(fields()[4]);
+        record.temp = fieldSetFlags()[5] ? this.temp : (java.lang.String) defaultValue(fields()[5]);
         return record;
       } catch (org.apache.avro.AvroMissingFieldException e) {
         throw e;
