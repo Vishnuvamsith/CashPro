@@ -57,7 +57,6 @@ public class OutboxPublisher {
                 .setAmount(payload.amount())            // BigDecimal, not byte[]
                 .setCurrency(payload.currency())
                 .setStatus(payload.status())
-                .setTemp("temp")
                 .build();
     }
 }

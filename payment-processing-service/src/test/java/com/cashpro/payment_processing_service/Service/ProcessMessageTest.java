@@ -26,7 +26,6 @@ class ProcessMessageTest {
                 .setAmount(new BigDecimal("12.34"))
                 .setCurrency("USD")
                 .setStatus("RECEIVED")
-                .setTemp("temp")
                 .build();
 
         ConsumerRecord<String, PaymentReceived> record = new ConsumerRecord<>(
