@@ -18,8 +18,7 @@
       }
     },
     { "name": "currency", "type": "string" },
-    { "name": "status", "type": "string" ,"default": "RECEIVED" },
-    { "name": "temp" , "type": "string" , "default": "temp" }
+    { "name": "status", "type": "string" ,"default": "RECEIVED" }
 
   ]
 }
