@@ -3,6 +3,18 @@ server:
 spring:
   application:
     name: payment-processing-service
+  datasource:
+    url: jdbc:postgresql://localhost:55432/cashpro
+    username: cashpro
+    password: cashpro
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    ignore-migration-patterns: "*:missing"
   data:
     redis:
       host: localhost
