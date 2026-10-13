@@ -6,18 +6,27 @@ import java.util.UUID;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.cashpro.events.PaymentReceived;
+import com.cashpro.payment_processing_service.Entity.PaymentProcessedModel;
+import com.cashpro.payment_processing_service.Repository.payloadRepo;
 
 class ProcessMessageTest {
 
     @Test
-    void listenShouldPublishProcessedEvent() {
+    void listenShouldSaveProcessingRow() {
         Producer producer = mock(Producer.class);
-        ProcessMessage processMessage = new ProcessMessage(producer);
+        payloadRepo repo = mock(payloadRepo.class);
+
+        // repo.save(...) must return a non-null object for the log line to work
+        when(repo.save(org.mockito.ArgumentMatchers.any(PaymentProcessedModel.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProcessMessage processMessage = new ProcessMessage(producer, repo);
 
         UUID paymentId = UUID.randomUUID();
         PaymentReceived paymentReceived = PaymentReceived.newBuilder()
@@ -38,12 +47,12 @@ class ProcessMessageTest {
 
         processMessage.listen(record);
 
-        verify(producer).publish(
-                eq("key-1"),
-                argThat(payload ->
-                        payload.getPaymentId().equals(paymentId)
-                                && "PROCESSED".equals(payload.getStatus())
-                )
-        );
+        verify(repo).save(argThat(saved ->
+                saved.getPayment_id().equals(paymentId)
+                        && "PROCESSING".equals(saved.getStatus())
+                        && "client-1".equals(saved.getClient_id())
+                        && new BigDecimal("12.34").compareTo(saved.getAmount()) == 0
+                        && "USD".equals(saved.getCurrency())
+        ));
     }
 }
