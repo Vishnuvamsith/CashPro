@@ -3,9 +3,9 @@ services:
     image: postgres:16
     container_name: cashpro-postgres
     environment:
-      POSTGRES_DB: cashpro
-      POSTGRES_USER: cashpro
-      POSTGRES_PASSWORD: cashpro
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB for the local stack}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER for the local stack}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for the local stack}
     ports:
       - "55432:5432"
     volumes:
@@ -112,8 +112,52 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Set GRAFANA_ADMIN_USER for the local stack}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD for the local stack}
+
+  payment-service:
+    profiles: [apps]
+    image: cashpro/payment-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
+    depends_on:
+      - postgres
+      - redis
+      - broker1
+      - broker2
+      - schema-registry
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cashpro
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER for the local stack}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for the local stack}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: broker1:29092,broker2:29095
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  payment-processing-service:
+    profiles: [apps]
+    image: cashpro/payment-processing-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: payment-processing-service/Dockerfile
+    depends_on:
+      - postgres
+      - redis
+      - broker1
+      - broker2
+      - schema-registry
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cashpro
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER for the local stack}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for the local stack}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: broker1:29092,broker2:29095
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
 
 volumes:
   postgres_data:
