@@ -1,5 +1,7 @@
-FROM eclipse-temurin:25-jre
-WORKDIR app
-COPY target/payment-service-0.0.1-SNAPSHOT.jar payment-service.jar
+FROM eclipse-temurin:17-jre-noble
+
+WORKDIR /app
+COPY --chown=10001:10001 payment-service/target/*.jar /app/app.jar
+USER 10001:10001
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "payment-service.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

@@ -1,0 +1,14 @@
+.env
+.env.*
+.git
+.idea
+.vscode
+**/target
+!payment-service/target/
+payment-service/target/**
+!payment-service/target/*.jar
+!payment-processing-service/target/
+payment-processing-service/target/**
+!payment-processing-service/target/*.jar
+**/node_modules
+**/*.log

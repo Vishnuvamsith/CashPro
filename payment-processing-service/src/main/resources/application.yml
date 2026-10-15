@@ -5,8 +5,8 @@ spring:
     name: payment-processing-service
   datasource:
     url: jdbc:postgresql://localhost:55432/cashpro
-    username: cashpro
-    password: cashpro
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
@@ -22,19 +22,19 @@ spring:
   kafka:
     bootstrap-servers: localhost:9092,localhost:9095
     properties:
-      schema.registry.url: http://localhost:8088
+      "[schema.registry.url]": http://localhost:8088
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: io.confluent.kafka.serializers.KafkaAvroSerializer
       properties:
-        auto.register.schemas: true
+        "[auto.register.schemas]": true
     consumer:
       group-id: payment-processing-service-group
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
       properties:
-        specific.avro.reader: true
+        "[specific.avro.reader]": true
 management:
   endpoints:
     web:
