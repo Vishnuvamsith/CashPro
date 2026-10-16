@@ -1,0 +1,81 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum(rate(cashpro_payment_requests_total[5m]))", "legendFormat": "Requests / second", "refId": "A" }],
+      "title": "Payment request throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (outcome) (rate(cashpro_payment_outcomes_total[5m]))", "legendFormat": "{{outcome}}", "refId": "A" }],
+      "title": "Payment outcomes (duplicates separate)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(cashpro_payment_request_duration_seconds_bucket[5m])))", "legendFormat": "p95 request", "refId": "A" }, { "expr": "histogram_quantile(0.95, sum by (le) (rate(cashpro_kafka_consumer_processing_seconds_bucket[5m])))", "legendFormat": "p95 consumer", "refId": "B" }],
+      "title": "Payment request and consumer p95 latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (outcome) (rate(cashpro_kafka_messages_total[5m]))", "legendFormat": "processed {{outcome}}", "refId": "A" }, { "expr": "rate(cashpro_kafka_consumer_retries_total[5m])", "legendFormat": "retry attempts", "refId": "B" }, { "expr": "rate(cashpro_kafka_consumer_dlq_messages_total[5m])", "legendFormat": "DLQ messages", "refId": "C" }],
+      "title": "Kafka processing errors, retries, and DLQ",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "kafka_consumergroup_lag{consumergroup=\"payment-processing-service-group\",topic=\"payment-events\"}", "legendFormat": "{{partition}}", "refId": "A" }],
+      "title": "Kafka payment-events consumer lag by partition",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 6,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (job) (jvm_memory_used_bytes{area=\"heap\",job=~\"payment-service|payment-processing-service\"})", "legendFormat": "{{job}} heap used", "refId": "A" }, { "expr": "sum by (job) (jvm_memory_max_bytes{area=\"heap\",job=~\"payment-service|payment-processing-service\"})", "legendFormat": "{{job}} heap max", "refId": "B" }],
+      "title": "JVM heap usage",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["cashpro", "payments"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CashPro Payment Operations",
+  "uid": "cashpro-payments",
+  "version": 1
+}

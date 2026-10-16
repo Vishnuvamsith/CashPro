@@ -98,6 +98,19 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://broker1:29092,PLAINTEXT://broker2:29095
       SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 2
 
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.9.0
+    container_name: cashpro-kafka-exporter
+    depends_on:
+      - broker1
+      - broker2
+    command:
+      - --kafka.server=broker1:29092
+      - --kafka.server=broker2:29095
+      - --kafka.version=3.9.0
+    ports:
+      - "9308:9308"
+
   prometheus:
     image: prom/prometheus:latest
     container_name: cashpro-prometheus
@@ -105,6 +118,7 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
 
   grafana:
     image: grafana/grafana:latest
@@ -114,6 +128,9 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Set GRAFANA_ADMIN_USER for the local stack}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD for the local stack}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards/cashpro:ro
 
   payment-service:
     profiles: [apps]

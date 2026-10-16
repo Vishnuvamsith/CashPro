@@ -3,15 +3,16 @@ package com.cashpro.payment_processing_service.Service;
 import com.cashpro.payment_processing_service.Entity.PaymentProcessedModel;
 import com.cashpro.payment_processing_service.Exceptions.ValidationException;
 import com.cashpro.payment_processing_service.Repository.payloadRepo;
-import jakarta.transaction.Transactional;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-import com.cashpro.events.PaymentProcessed;
 import com.cashpro.events.PaymentReceived;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,36 +20,36 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProcessMessage implements MessageInterface {
     private final Logger log= LoggerFactory.getLogger(ProcessMessage.class);
-    private final Producer producer;
     private final payloadRepo repo;
+    private final MeterRegistry meterRegistry;
     @KafkaListener(topics = "payment-events")
-    @Transactional
     public void listen(ConsumerRecord<String, PaymentReceived> message) {
-        log.info("Receive message {}",message.offset());
-        log.info("Receive message {}",message.headers());
-        log.info("Receive message {}",message.value());
-        log.info("Receive message {}",message.key());
-        log.info("Receive message {}",message.topic());
+        Timer.Sample sample = Timer.start(meterRegistry);
         try {
+            log.info("Receive message {}", message.offset());
+            log.info("Receive message {}", message.headers());
+            log.info("Receive message {}", message.value());
+            log.info("Receive message {}", message.key());
+            log.info("Receive message {}", message.topic());
             validate(message);
-            PaymentProcessedModel data=PaymentProcessedModel.builder()
+            PaymentProcessedModel data = PaymentProcessedModel.builder()
                     .payment_id(message.value().getPaymentId())
                     .client_id(message.value().getClientId())
                     .amount(message.value().getAmount())
                     .currency(message.value().getCurrency())
                     .status("PROCESSING")
                     .build();
-            PaymentProcessedModel savedPayment= repo.save(data);
+            PaymentProcessedModel savedPayment = repo.save(data);
             log.info("Saved payment to DB: {}", savedPayment);
-//            PaymentProcessed payload = PaymentProcessed.newBuilder()
-//                    .setPaymentId(message.value().getPaymentId())
-//                    .setStatus("PROCESSED")
-//                    .build();
-//            producer.publish(message.key(), payload);
-//            log.info("Queued PAYMENT_PROCESSED for: {}", message.key());
-            // build + publish
-        } catch (ValidationException e) {
-            log.error("Invalid message at offset {}: {}", message.offset(), e.getMessage());
+            meterRegistry.counter("cashpro.kafka.messages", "outcome", "success").increment();
+        } catch (RuntimeException e) {
+            meterRegistry.counter("cashpro.kafka.messages", "outcome", "failure").increment();
+            log.error("Payment event processing failed", e);
+            throw e;
+        } finally {
+            sample.stop(Timer.builder("cashpro.kafka.consumer.processing")
+                    .publishPercentileHistogram()
+                    .register(meterRegistry));
         }
     }
     @Override
