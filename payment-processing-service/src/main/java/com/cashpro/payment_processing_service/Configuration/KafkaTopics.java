@@ -15,4 +15,12 @@ public class KafkaTopics {
                 .replicas(2)
                 .build();
     }
+
+    @Bean
+    NewTopic paymentEventsDeadLetterTopic() {
+        return TopicBuilder.name("payment-events-dlq")
+                .partitions(3)
+                .replicas(2)
+                .build();
+    }
 }

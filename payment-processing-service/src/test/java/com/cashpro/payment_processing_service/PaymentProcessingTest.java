@@ -30,6 +30,14 @@ class PaymentProcessingTest {
                     .replicas(1)
                     .build();
         }
+
+        @Bean
+        NewTopic paymentEventsDeadLetterTopic() {
+            return TopicBuilder.name("payment-events-dlq")
+                .partitions(3)
+                .replicas(1)
+                .build();
+        }
     }
 
     @Container

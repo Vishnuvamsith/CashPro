@@ -19,6 +19,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import com.cashpro.payment_service.DTO.CreatePaymentRequest;
 import com.cashpro.payment_service.DTO.PaymentResponse;
@@ -36,14 +38,18 @@ class PaymentServiceTest {
     private ValueOperations<String, String> valueOperations;
     private OutboxEventRepository outboxEventRepository;
     private PaymentService paymentService;
+        private MeterRegistry meterRegistry;
 
     @BeforeEach
-    void setUp() {
+        @SuppressWarnings("unchecked")
+        void setUp() {
         paymentRepository = mock(PaymentRepository.class);
         redisTemplate = mock(StringRedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
         outboxEventRepository = mock(OutboxEventRepository.class);
-        paymentService = new PaymentService(paymentRepository, redisTemplate, outboxEventRepository);
+        meterRegistry = new SimpleMeterRegistry();
+        paymentService = new PaymentService(paymentRepository, redisTemplate, outboxEventRepository,
+                meterRegistry);
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
@@ -82,6 +88,10 @@ class PaymentServiceTest {
         assertThat(response.paymentId()).isEqualTo(savedPayment.getPaymentId());
         assertThat(response.amount()).isEqualByComparingTo(new BigDecimal("150.50"));
         assertThat(response.status()).isEqualTo(PaymentStatus.RECEIVED);
+        assertThat(meterRegistry.get("cashpro.payment.requests").counter().count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("cashpro.payment.outcomes").tag("outcome", "success").counter().count())
+                .isEqualTo(1.0);
+        assertThat(meterRegistry.get("cashpro.payment.request.duration").timer().count()).isEqualTo(1L);
 
         ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
         verify(paymentRepository).save(paymentCaptor.capture());
@@ -112,6 +122,9 @@ class PaymentServiceTest {
 
         verify(paymentRepository, never()).save(any(Payment.class));
         verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
+        assertThat(meterRegistry.get("cashpro.payment.idempotency.duplicates").counter().count()).isEqualTo(1.0);
+        assertThat(meterRegistry.get("cashpro.payment.outcomes").tag("outcome", "duplicate").counter().count())
+                .isEqualTo(1.0);
     }
 
     @Test

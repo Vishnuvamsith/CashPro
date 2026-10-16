@@ -1,0 +1,48 @@
+groups:
+  - name: cashpro-payment-alerts
+    rules:
+      - alert: ElevatedPaymentFailures
+        expr: |
+          sum(rate(cashpro_payment_outcomes_total{outcome="failure"}[5m]))
+          /
+          clamp_min(sum(rate(cashpro_payment_outcomes_total{outcome=~"success|failure"}[5m])), 1e-9)
+          > 0.05
+          and sum(rate(cashpro_payment_outcomes_total{outcome=~"success|failure"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment failure ratio is above 5%
+          description: More than 5% of non-duplicate payment requests failed for at least 5 minutes, with at least 0.1 requests/second.
+          runbook: Check payment-service logs, database and Redis connectivity, and recent deployments. Verify failures recover after the dependency is healthy.
+
+      - alert: HighPaymentProcessingLatency
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(cashpro_kafka_consumer_processing_seconds_bucket[5m]))) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment event processing p95 latency exceeds 2 seconds
+          description: Payment consumer p95 processing latency has remained above 2 seconds for 10 minutes.
+          runbook: Check payment-processing-service saturation, database health, and Kafka consumer errors/retries. Compare API request and consumer latency before mitigation.
+
+      - alert: CashProServiceUnavailable
+        expr: up{job=~"payment-service|payment-processing-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: CashPro service scrape is unavailable
+          description: Prometheus has failed to scrape {{ $labels.job }} for 2 minutes.
+          runbook: Check container health, application startup logs, the Compose apps profile, and actuator network reachability.
+
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumergroup_lag{consumergroup="payment-processing-service-group", topic="payment-events"} > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Payment event consumer lag is above 100 messages
+          description: The payment processing consumer group has sustained lag above 100 messages for 10 minutes.
+          runbook: Check payment-processing-service availability, consumer errors/retries, database health, and Kafka broker health.

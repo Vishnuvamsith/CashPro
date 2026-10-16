@@ -6,13 +6,13 @@ import com.cashpro.payment_service.DTO.PaymentResponse;
 import com.cashpro.payment_service.Entity.OutboxEvent;
 import com.cashpro.payment_service.Entity.Payment;
 import com.cashpro.payment_service.Entity.PaymentStatus;
-import com.cashpro.payment_service.Exceptions.DBexception;
 import com.cashpro.payment_service.Exceptions.DuplicatePaymentException;
 import com.cashpro.payment_service.Repo.OutboxEventRepository;
 import com.cashpro.payment_service.Repo.PaymentRepository;
 import jakarta.transaction.Transactional;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.ILoggerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -28,26 +28,25 @@ public class PaymentService {
     private final StringRedisTemplate redisTemplate;
     private final OutboxEventRepository outboxEventRepository;
     private final Logger log= LoggerFactory.getLogger(PaymentService.class);
+    private final MeterRegistry meterRegistry;
+
     @Transactional
     public PaymentResponse createPayment(CreatePaymentRequest data, String idemKey) {
-
         String redisKey = "idem:" + idemKey;
-
-        Boolean acquired = redisTemplate.opsForValue()
-                .setIfAbsent(
-                        redisKey,
-                        "PROCESSING",
-                        Duration.ofHours(24)
-                );
-        log.warn("acquired status:{}", acquired);
-
-        if (!Boolean.TRUE.equals(acquired)) {
-            throw new DuplicatePaymentException(
-                    "Cannot accept duplicate payment"
-            );
-        }
+        Timer.Sample sample = Timer.start(meterRegistry);
+        meterRegistry.counter("cashpro.payment.requests").increment();
 
         try {
+            Boolean acquired = redisTemplate.opsForValue()
+                    .setIfAbsent(redisKey, "PROCESSING", Duration.ofHours(24));
+            log.warn("acquired status:{}", acquired);
+
+            if (!Boolean.TRUE.equals(acquired)) {
+                meterRegistry.counter("cashpro.payment.idempotency.duplicates").increment();
+                meterRegistry.counter("cashpro.payment.outcomes", "outcome", "duplicate").increment();
+                throw new DuplicatePaymentException("Cannot accept duplicate payment");
+            }
+
             Payment payment = Payment.builder()
                     .clientId(data.clientId())
                     .debitAccount(data.debitAccount())
@@ -59,7 +58,7 @@ public class PaymentService {
                     .build();
 
             Payment savedPayment = paymentRepository.save(payment);
-            Payload payload=Payload.builder()
+            Payload payload = Payload.builder()
                     .paymentId(savedPayment.getPaymentId())
                     .clientId(savedPayment.getClientId())
                     .amount(savedPayment.getAmount())
@@ -75,7 +74,7 @@ public class PaymentService {
                     .build();
 
             outboxEventRepository.save(event);
-
+            meterRegistry.counter("cashpro.payment.outcomes", "outcome", "success").increment();
             return new PaymentResponse(
                     savedPayment.getPaymentId(),
                     savedPayment.getAmount(),
@@ -83,10 +82,16 @@ public class PaymentService {
                     savedPayment.getStatus(),
                     savedPayment.getCreatedAt()
             );
-
-        } catch (Exception e) {
+        } catch (DuplicatePaymentException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            meterRegistry.counter("cashpro.payment.outcomes", "outcome", "failure").increment();
             redisTemplate.delete(redisKey);
             throw e;
+        } finally {
+            sample.stop(Timer.builder("cashpro.payment.request.duration")
+                    .publishPercentileHistogram()
+                    .register(meterRegistry));
         }
     }
     public PaymentResponse get(UUID id) {
