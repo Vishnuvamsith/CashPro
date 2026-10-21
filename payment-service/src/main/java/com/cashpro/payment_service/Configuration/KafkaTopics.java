@@ -14,4 +14,20 @@ public class KafkaTopics {
                 .replicas(2)
                 .build();
     }
+
+    @Bean
+    NewTopic approvalRequestsTopic() {
+        return TopicBuilder.name("approval-requests")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
+
+    @Bean
+    NewTopic approvalDecisionsTopic() {
+        return TopicBuilder.name("approval-decisions")
+                .partitions(3)
+                .replicas(1)
+                .build();
+    }
 }

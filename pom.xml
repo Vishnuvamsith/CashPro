@@ -36,6 +36,7 @@
     <modules>
         <module>payment-events</module>
         <module>payment-service</module>
+        <module>approval-service</module>
         <module>payment-processing-service</module>
     </modules>
 

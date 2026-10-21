@@ -10,5 +10,8 @@ payment-service/target/**
 !payment-processing-service/target/
 payment-processing-service/target/**
 !payment-processing-service/target/*.jar
+!approval-service/target/
+approval-service/target/**
+!approval-service/target/*.jar
 **/node_modules
 **/*.log
