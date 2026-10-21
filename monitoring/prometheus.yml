@@ -16,6 +16,11 @@ scrape_configs:
     static_configs:
       - targets: ['payment-processing-service:8081']
 
+  - job_name: 'approval-service'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['approval-service:8082']
+
   - job_name: 'kafka-exporter'
     static_configs:
       - targets: ['kafka-exporter:9308']

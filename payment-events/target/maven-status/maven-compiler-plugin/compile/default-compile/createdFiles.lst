@@ -1,4 +1,8 @@
-com/cashpro/events/PaymentReceived.class
 com/cashpro/events/PaymentProcessed.class
 com/cashpro/events/PaymentReceived$Builder.class
+com/cashpro/events/ApprovalRequested.class
+com/cashpro/events/ApprovalRequested$Builder.class
 com/cashpro/events/PaymentProcessed$Builder.class
+com/cashpro/events/ApprovalDecisionRecorded$Builder.class
+com/cashpro/events/PaymentReceived.class
+com/cashpro/events/ApprovalDecisionRecorded.class

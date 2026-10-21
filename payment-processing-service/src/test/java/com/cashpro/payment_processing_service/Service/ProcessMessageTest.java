@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -74,5 +75,47 @@ class ProcessMessageTest {
                 assertThat(registry.get("cashpro.kafka.messages").tag("outcome", "failure").counter().count())
                                 .isEqualTo(1.0);
                 assertThat(registry.get("cashpro.kafka.consumer.processing").timer().count()).isEqualTo(1L);
+        }
+
+    @Test
+    void listenShouldIgnorePaymentAwaitingApproval() {
+        payloadRepo repo = mock(payloadRepo.class);
+        MeterRegistry registry = new SimpleMeterRegistry();
+        ProcessMessage processMessage = new ProcessMessage(repo, registry);
+        PaymentReceived pending = PaymentReceived.newBuilder()
+                .setPaymentId(UUID.randomUUID())
+                .setClientId("client-1")
+                .setAmount(new BigDecimal("12.34"))
+                .setCurrency("USD")
+                .setStatus("PENDING_APPROVAL")
+                .build();
+
+        processMessage.listen(new ConsumerRecord<>("payment-events", 0, 3L, "key", pending));
+
+        verify(repo, never()).save(org.mockito.ArgumentMatchers.any(PaymentProcessedModel.class));
+        assertThat(registry.get("cashpro.kafka.messages").tag("outcome", "ignored").counter().count())
+                .isEqualTo(1.0);
+    }
+
+        @Test
+        void listenShouldIgnoreDuplicatePaymentDelivery() {
+                payloadRepo repo = mock(payloadRepo.class);
+                UUID paymentId = UUID.randomUUID();
+                org.mockito.Mockito.when(repo.existsById(paymentId)).thenReturn(true);
+                MeterRegistry registry = new SimpleMeterRegistry();
+                ProcessMessage processMessage = new ProcessMessage(repo, registry);
+                PaymentReceived received = PaymentReceived.newBuilder()
+                                .setPaymentId(paymentId)
+                                .setClientId("client-1")
+                                .setAmount(new BigDecimal("12.34"))
+                                .setCurrency("USD")
+                                .setStatus("RECEIVED")
+                                .build();
+
+                processMessage.listen(new ConsumerRecord<>("payment-events", 0, 4L, "key", received));
+
+                verify(repo, never()).save(org.mockito.ArgumentMatchers.any(PaymentProcessedModel.class));
+                assertThat(registry.get("cashpro.kafka.messages").tag("outcome", "duplicate").counter().count())
+                                .isEqualTo(1.0);
         }
 }

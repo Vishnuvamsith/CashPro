@@ -153,6 +153,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker1:29092,broker2:29095
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      PAYMENT_APPROVAL_THRESHOLD_USD: ${PAYMENT_APPROVAL_THRESHOLD_USD:-1000.00}
 
   payment-processing-service:
     profiles: [apps]
@@ -175,6 +176,27 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker1:29092,broker2:29095
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  approval-service:
+    profiles: [apps]
+    image: cashpro/approval-service:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: approval-service/Dockerfile
+    depends_on:
+      - postgres
+      - broker1
+      - broker2
+      - schema-registry
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cashpro
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER for the local stack}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD for the local stack}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: broker1:29092,broker2:29095
+      SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      APPROVAL_AUTHORIZED_USERS: ${APPROVAL_AUTHORIZED_USERS:-}
 
 volumes:
   postgres_data:

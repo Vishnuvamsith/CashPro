@@ -92,7 +92,7 @@ class PaymentServiceIntegrationTest {
                 "USD"
         );
 
-        PaymentResponse response = paymentService.createPayment(request, idemKey);
+        PaymentResponse response = paymentService.createPayment(request, idemKey, "maker-1");
 
         assertThat(response).isNotNull();
         assertThat(response.paymentId()).isNotNull();
@@ -105,4 +105,22 @@ class PaymentServiceIntegrationTest {
                     assertThat(event.getStatus()).isEqualTo("PENDING");
                 });
     }
+
+        @Test
+        void approvalRequiredPaymentCreatesApprovalRequestOutboxEvent() {
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "client-approval", "debit-approval", "credit-approval",
+                new BigDecimal("1500.00"), "USD");
+        PaymentResponse pending = paymentService.createPayment(
+                request, "approval-" + UUID.randomUUID(), "maker-approval");
+
+        assertThat(pending.status()).isEqualTo(PaymentStatus.PENDING_APPROVAL);
+        assertThat(outboxEventRepository.findAll())
+                .filteredOn(event -> event.getAggregateId().equals(pending.paymentId()))
+                .hasSize(1)
+                .allSatisfy(event -> {
+                    assertThat(event.getEventType()).isEqualTo("APPROVAL_REQUESTED");
+                    assertThat(event.getStatus()).isEqualTo("PENDING");
+                });
+        }
 }

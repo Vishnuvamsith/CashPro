@@ -24,6 +24,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import com.cashpro.payment_service.DTO.CreatePaymentRequest;
 import com.cashpro.payment_service.DTO.PaymentResponse;
+import com.cashpro.payment_service.Configuration.ApprovalPolicyProperties;
 import com.cashpro.payment_service.Entity.OutboxEvent;
 import com.cashpro.payment_service.Entity.Payment;
 import com.cashpro.payment_service.Entity.PaymentStatus;
@@ -37,6 +38,7 @@ class PaymentServiceTest {
     private StringRedisTemplate redisTemplate;
     private ValueOperations<String, String> valueOperations;
     private OutboxEventRepository outboxEventRepository;
+        private ApprovalPolicyProperties approvalPolicy;
     private PaymentService paymentService;
         private MeterRegistry meterRegistry;
 
@@ -47,9 +49,11 @@ class PaymentServiceTest {
         redisTemplate = mock(StringRedisTemplate.class);
         valueOperations = mock(ValueOperations.class);
         outboxEventRepository = mock(OutboxEventRepository.class);
+        approvalPolicy = new ApprovalPolicyProperties();
+        approvalPolicy.getThresholds().put("USD", new BigDecimal("1000.00"));
         meterRegistry = new SimpleMeterRegistry();
         paymentService = new PaymentService(paymentRepository, redisTemplate, outboxEventRepository,
-                meterRegistry);
+                approvalPolicy, meterRegistry);
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
@@ -83,7 +87,7 @@ class PaymentServiceTest {
                 "USD"
         );
 
-        PaymentResponse response = paymentService.createPayment(request, "test-key");
+        PaymentResponse response = paymentService.createPayment(request, "test-key", "maker-1");
 
         assertThat(response.paymentId()).isEqualTo(savedPayment.getPaymentId());
         assertThat(response.amount()).isEqualByComparingTo(new BigDecimal("150.50"));
@@ -116,7 +120,7 @@ class PaymentServiceTest {
                 "USD"
         );
 
-        assertThatThrownBy(() -> paymentService.createPayment(request, "duplicate-key"))
+        assertThatThrownBy(() -> paymentService.createPayment(request, "duplicate-key", "maker-1"))
                 .isInstanceOf(DuplicatePaymentException.class)
                 .hasMessage("Cannot accept duplicate payment");
 

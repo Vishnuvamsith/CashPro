@@ -21,9 +21,10 @@ public class PaymentController {
     @PostMapping
     public PaymentResponse create(
             @RequestHeader("Idempotency-Key") String idemKey,
+            @RequestHeader("X-User-Id") String makerId,
             @Valid @RequestBody CreatePaymentRequest request) {
 
-        return service.createPayment(request, idemKey);
+        return service.createPayment(request, idemKey, makerId);
     }
 
     @GetMapping("/{id}")

@@ -32,6 +32,17 @@ public class ProcessMessage implements MessageInterface {
             log.info("Receive message {}", message.key());
             log.info("Receive message {}", message.topic());
             validate(message);
+            String paymentStatus = message.value().getStatus();
+            if (!"RECEIVED".equals(paymentStatus) && !"APPROVED".equals(paymentStatus)) {
+                meterRegistry.counter("cashpro.kafka.messages", "outcome", "ignored").increment();
+                log.warn("Ignoring non-processable payment event with status {}", paymentStatus);
+                return;
+            }
+            if (repo.existsById(message.value().getPaymentId())) {
+                meterRegistry.counter("cashpro.kafka.messages", "outcome", "duplicate").increment();
+                log.info("Ignoring duplicate payment event {}", message.value().getPaymentId());
+                return;
+            }
             PaymentProcessedModel data = PaymentProcessedModel.builder()
                     .payment_id(message.value().getPaymentId())
                     .client_id(message.value().getClientId())

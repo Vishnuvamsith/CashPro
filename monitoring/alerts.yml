@@ -28,7 +28,7 @@ groups:
           runbook: Check payment-processing-service saturation, database health, and Kafka consumer errors/retries. Compare API request and consumer latency before mitigation.
 
       - alert: CashProServiceUnavailable
-        expr: up{job=~"payment-service|payment-processing-service"} == 0
+        expr: up{job=~"payment-service|payment-processing-service|approval-service"} == 0
         for: 2m
         labels:
           severity: critical
