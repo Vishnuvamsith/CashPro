@@ -14,4 +14,5 @@
 /Users/vishnuvamsithyejju/Desktop/CashPro/approval-service/src/main/java/com/cashpro/approval_service/Repository/ApprovalOutboxRepository.java
 /Users/vishnuvamsithyejju/Desktop/CashPro/approval-service/src/main/java/com/cashpro/approval_service/Repository/ApprovalRequestRepository.java
 /Users/vishnuvamsithyejju/Desktop/CashPro/approval-service/src/main/java/com/cashpro/approval_service/Service/ApprovalOutboxPublisher.java
+/Users/vishnuvamsithyejju/Desktop/CashPro/approval-service/src/main/java/com/cashpro/approval_service/Service/ApprovalRequestConsumer.java
 /Users/vishnuvamsithyejju/Desktop/CashPro/approval-service/src/main/java/com/cashpro/approval_service/Service/ApprovalService.java
