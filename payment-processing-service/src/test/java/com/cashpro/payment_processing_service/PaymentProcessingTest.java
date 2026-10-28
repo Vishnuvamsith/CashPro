@@ -18,7 +18,11 @@ import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 @Testcontainers
-@TestPropertySource(properties = "spring.main.allow-bean-definition-overriding=true")
+@TestPropertySource(properties = {
+    "spring.main.allow-bean-definition-overriding=true",
+    "spring.flyway.enabled=false",
+    "spring.jpa.hibernate.ddl-auto=update"
+})
 class PaymentProcessingTest {
 
     @TestConfiguration

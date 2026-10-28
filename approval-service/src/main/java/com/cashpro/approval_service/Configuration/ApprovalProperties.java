@@ -1,31 +1,35 @@
 package com.cashpro.approval_service.Configuration;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@ConfigurationProperties(prefix = "cashpro.approval")
+@Component
 public class ApprovalProperties {
-    private String authorizedApprovers = "";
 
-    public String getAuthorizedApprovers() {
-        return authorizedApprovers;
+    private final Set<String> authorizedUsers;
+
+    public ApprovalProperties(
+            @Value("${cashpro.approval.authorized-approvers:}") String authorizedApprovers) {
+        this.authorizedUsers = Arrays.stream(authorizedApprovers.split(","))
+                .map(String::trim)
+                .filter(v -> !v.isEmpty())
+                .collect(Collectors.toUnmodifiableSet());
+        if (this.authorizedUsers.isEmpty()) {
+            // log.warn("No authorized approvers configured — all approvals will be denied");
+        }
     }
 
-    public void setAuthorizedApprovers(String authorizedApprovers) {
-        this.authorizedApprovers = authorizedApprovers == null ? "" : authorizedApprovers;
+    public Set<String> getAuthorizedUsers() {
+        return authorizedUsers;
     }
 
     public boolean isAuthorized(String userId) {
-        if (userId == null || userId.isBlank()) {
-            return false;
-        }
-        Set<String> users = Arrays.stream(authorizedApprovers.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .collect(Collectors.toSet());
-        return users.contains(userId.trim());
+        return userId != null
+                && !userId.isBlank()
+                && authorizedUsers.contains(userId.trim());
     }
 }

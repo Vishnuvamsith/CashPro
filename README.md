@@ -10,7 +10,7 @@ Use the repository Maven wrapper and Java 17:
 ./mvnw clean verify
 ```
 
-The verification command builds all modules in dependency order and runs their automated tests. The payment-service integration tests use Testcontainers and require a working Docker installation.
+The verification command builds all modules in dependency order and runs their automated tests. The payment-service and approval-service integration tests use Testcontainers and require a working Docker installation.
 
 ## Build Docker images locally
 
@@ -27,7 +27,7 @@ The images run as a non-root user and do not include `.env` files or Maven build
 
 ## Run the full local stack
 
-The existing default Compose setup continues to start only the PostgreSQL, Redis, Kafka/Schema Registry, Prometheus, and Grafana infrastructure. Compose now requires local database and Grafana credentials via environment variables; keep them in your shell or an ignored local `.env` file, never commit them. For example, export `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `GRAFANA_ADMIN_USER`, and `GRAFANA_ADMIN_PASSWORD` with your own local values. Package the applications first, then build and start all application images by opting into the `apps` profile:
+The existing default Compose setup continues to start only the PostgreSQL, Redis, Kafka/Schema Registry, Prometheus, and Grafana infrastructure. Compose now requires local database and Grafana credentials via environment variables; keep them in your shell or an ignored local `.env` file, never commit them. For example, export `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `GRAFANA_ADMIN_USER`, and `GRAFANA_ADMIN_PASSWORD` with your own local values. Payment Service owns Flyway migrations for the shared `public` schema; the processor waits for Payment Service's health check before startup and validates its table mapping. Package the applications first, then build and start all application images by opting into the `apps` profile:
 
 ```sh
 ./mvnw --batch-mode --no-transfer-progress clean package
@@ -40,7 +40,7 @@ The payment API is available at <http://localhost:8080>, the processing service 
 POSTGRES_DB=cashpro POSTGRES_USER=cashpro POSTGRES_PASSWORD='your-local-password' GRAFANA_ADMIN_USER=admin GRAFANA_ADMIN_PASSWORD='your-grafana-password' APPROVAL_AUTHORIZED_USERS='checker-1,checker-2' IMAGE_TAG=local docker compose --profile apps up --build
 ```
 
-To stop the stack, run `docker compose --profile apps down`. The named database and Kafka volumes are retained unless explicitly removed with `-v`.
+To stop the stack, run `docker compose --profile apps down`. The named database and Kafka volumes are retained unless explicitly removed with `-v`. When upgrading an existing deployment, rebuild and recreate both payment-service and payment-processing-service together so the processor no longer runs a stale image that independently validates the shared Flyway history.
 
 ## Continuous integration
 
@@ -84,7 +84,7 @@ Prometheus and Grafana rules/configuration and the provisioned dashboard are ver
 
 See the [end-to-end approval flowchart](docs/maker-checker-approval-flow.md) for the service boundaries, Kafka topics, outboxes, and payment state transitions.
 
-`payment-service` owns payment status and applies the business policy: USD payments of at least `PAYMENT_APPROVAL_THRESHOLD_USD` (default `1000.00`) enter `PENDING_APPROVAL`. Creation requires an explicit `X-User-Id` maker identity. The payment and its `APPROVAL_REQUESTED` outbox event commit together. The event is published to Kafka topic `approval-requests`; the dedicated `approval-service` consumes it, persists the request in its own PostgreSQL `approval` schema, and owns approval commands and immutable decisions. There is no synchronous payment-to-approval-service call, so the approval request becomes available after the Kafka consumer has handled the event. The earlier payment-service decision table is retained under a legacy name by migration V7 so existing audit history is preserved.
+`payment-service` owns payment status and applies the business policy: USD payments of at least `PAYMENT_APPROVAL_THRESHOLD_USD` (default `1000.00`) enter `PENDING_APPROVAL`. Creation requires an explicit `X-User-Id` maker identity. The payment and its `APPROVAL_REQUESTED` outbox event commit together. The event is published to Kafka topic `approval-requests`; the dedicated `approval-service` consumes it, persists the request in its own PostgreSQL `approval` schema, and owns approval commands and immutable decisions. There is no synchronous payment-to-approval-service call, so the approval request becomes available after the Kafka consumer has handled the event. Payment Service centrally owns Flyway for the shared `public` schema; Approval Service owns its separate `approval` schema. The old payment-service decision table is retained under a legacy name by migration V8 so existing audit history is preserved.
 
 Configure checker IDs with the comma-separated `APPROVAL_AUTHORIZED_USERS` environment variable. Approve or reject with `POST http://localhost:8082/api/approvals/{paymentId}/approve` or `/reject`, sending the checker in `X-User-Id` and an optional JSON `reason`. Read the request at `GET /api/approvals/{paymentId}` and its decision at `/decision`. Maker/checker separation, row locking, and a unique decision constraint prevent self-approval or conflicting decisions. The approval service publishes its decision through its transactional outbox to `approval-decisions`; payment-service consumes that event and only then writes an approved payment to its existing processing outbox. Rejected payments are not sent for processing.
 

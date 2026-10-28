@@ -146,6 +146,12 @@ services:
       - schema-registry
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 3s
+      start_period: 30s
+      retries: 12
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cashpro
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER for the local stack}
@@ -162,11 +168,18 @@ services:
       context: .
       dockerfile: payment-processing-service/Dockerfile
     depends_on:
-      - postgres
-      - redis
-      - broker1
-      - broker2
-      - schema-registry
+      payment-service:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      broker1:
+        condition: service_started
+      broker2:
+        condition: service_started
+      schema-registry:
+        condition: service_started
     ports:
       - "8081:8081"
     environment:
