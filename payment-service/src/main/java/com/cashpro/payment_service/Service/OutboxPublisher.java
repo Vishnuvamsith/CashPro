@@ -28,26 +28,24 @@ public class OutboxPublisher {
                 .filter(event -> event.getStatus().equals("PENDING"))
                 .forEach(event -> {
                     JsonNode payload = event.getPayload();
-                    String topic = "APPROVAL_REQUESTED".equals(event.getEventType())
-                        ? "approval-requests"
-                        : "payment-events";
-                    Object value = "APPROVAL_REQUESTED".equals(event.getEventType())
-                        ? toApprovalRequested(payload)
-                        : toPaymentReceived(payload);
-                    kafkaTemplate.send(topic, event.getAggregateId().toString(), value)
-                        .whenComplete((result, exception) -> {
-
-                        if (exception == null) {
-                            repository.markPublishedIfPending(event.getId(), Instant.now());
-
-                        } else {
-
-                            System.out.println(
-                                    "Failed to publish event: "
-                                            + event.getId()
-                            );
-                        }
-                    });
+                    try {
+                        String topic = "APPROVAL_REQUESTED".equals(event.getEventType())
+                                ? "approval-requests"
+                                : "payment-events";
+                        Object value = "APPROVAL_REQUESTED".equals(event.getEventType())
+                                ? toApprovalRequested(payload)
+                                : toPaymentReceived(payload);
+                        kafkaTemplate.send(topic, event.getAggregateId().toString(), value)
+                                .whenComplete((result, exception) -> {
+                                    if (exception == null) {
+                                        repository.markPublishedIfPending(event.getId(), Instant.now());
+                                    } else {
+                                        System.out.println("Failed to publish event: " + event.getId());
+                                    }
+                                });
+                    } catch (RuntimeException exception) {
+                        System.out.println("Failed to prepare event: " + event.getId());
+                    }
                 });
     }
 

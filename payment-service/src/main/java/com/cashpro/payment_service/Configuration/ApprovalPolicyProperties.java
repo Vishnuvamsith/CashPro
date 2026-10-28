@@ -18,7 +18,7 @@ public class ApprovalPolicyProperties {
     }
 
     public void setThresholds(Map<String, BigDecimal> thresholds) {
-        this.thresholds = new HashMap<>();
+        //this.thresholds = new HashMap<>();
         if (thresholds != null) {
             thresholds.forEach((currency, threshold) ->
                     this.thresholds.put(currency.toUpperCase(Locale.ROOT), threshold));

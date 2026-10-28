@@ -8,9 +8,9 @@ import com.cashpro.approval_service.Entity.ApprovalStatus;
 import com.cashpro.approval_service.Repository.ApprovalDecisionRepository;
 import com.cashpro.approval_service.Repository.ApprovalOutboxRepository;
 import com.cashpro.approval_service.Repository.ApprovalRequestRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -37,8 +37,8 @@ class ApprovalServiceTest {
         requests = mock(ApprovalRequestRepository.class);
         decisions = mock(ApprovalDecisionRepository.class);
         outbox = mock(ApprovalOutboxRepository.class);
-        properties = new ApprovalProperties();
-        properties.setAuthorizedApprovers("checker-1, checker-2");
+        // Constructor takes the raw comma-separated config string
+        properties = new ApprovalProperties("checker-1, checker-2");
         service = new ApprovalService(requests, decisions, outbox, properties);
     }
 
@@ -80,6 +80,43 @@ class ApprovalServiceTest {
 
         assertThatThrownBy(() -> service.reject(paymentId, "checker-2", "No"))
                 .isInstanceOf(ResponseStatusException.class);
+    }
+
+    // ----- new tests enabled by the immutable-Set design -----
+
+    @Test
+    void trimsWhitespaceAroundConfiguredUsers() {
+        // "checker-2" has a leading space in the raw config; must still match
+        assertThat(properties.isAuthorized("checker-2")).isTrue();
+        assertThat(properties.isAuthorized("  checker-1  ")).isTrue();
+    }
+
+    @Test
+    void emptyConfigurationDeniesEveryone() {
+        ApprovalProperties empty = new ApprovalProperties("");
+        assertThat(empty.isAuthorized("checker-1")).isFalse();
+        assertThat(empty.isAuthorized("")).isFalse();
+        assertThat(empty.isAuthorized(null)).isFalse();
+
+        UUID paymentId = UUID.randomUUID();
+        when(requests.findByPaymentIdForUpdate(paymentId))
+                .thenReturn(Optional.of(pendingRequest(paymentId)));
+        ApprovalService lockedDown = new ApprovalService(requests, decisions, outbox, empty);
+
+        assertThatThrownBy(() -> lockedDown.approve(paymentId, "checker-1", null))
+                .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void unauthorizedDecisionIsForbidden() {
+        UUID paymentId = UUID.randomUUID();
+        when(requests.findByPaymentIdForUpdate(paymentId))
+                .thenReturn(Optional.of(pendingRequest(paymentId)));
+
+        assertThatThrownBy(() -> service.approve(paymentId, "stranger", null))
+                .isInstanceOf(ResponseStatusException.class)
+                .extracting(e -> ((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.FORBIDDEN);
     }
 
     private ApprovalRequest pendingRequest(UUID paymentId) {

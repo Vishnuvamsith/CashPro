@@ -38,7 +38,11 @@ spring:
         auto.register.schemas: true
 cashpro:
   approval:
-    authorized-approvers: ${APPROVAL_AUTHORIZED_USERS:}
+    authorized-approvers: ${APPROVAL_AUTHORIZED_USERS:omRaut}
+    thresholds:
+      USD: 1000.00
+      EUR: 900.00
+      GBP: 800.00
 management:
   endpoints:
     web:

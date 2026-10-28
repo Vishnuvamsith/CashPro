@@ -9,12 +9,10 @@ spring:
     password: ${POSTGRES_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
   flyway:
-    enabled: true
-    locations: classpath:db/migration
-    ignore-migration-patterns: "*:missing"
+    enabled: false
   data:
     redis:
       host: localhost
