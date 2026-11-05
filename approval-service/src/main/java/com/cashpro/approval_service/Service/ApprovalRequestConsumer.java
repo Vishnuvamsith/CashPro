@@ -4,6 +4,7 @@ import com.cashpro.events.ApprovalRequested;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import io.micrometer.observation.annotation.Observed;
 
 @Component
 @RequiredArgsConstructor
@@ -11,6 +12,7 @@ public class ApprovalRequestConsumer {
     private final ApprovalService approvalService;
 
     @KafkaListener(topics = "approval-requests", groupId = "approval-service-requests")
+    @Observed(name = "cashpro.approval.request.consume")
     public void onRequest(ApprovalRequested event) {
         if (event == null || event.getPaymentId() == null || event.getMakerId() == null
                 || event.getMakerId().isBlank() || event.getClientId() == null

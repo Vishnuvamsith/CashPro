@@ -50,6 +50,12 @@ public class ApprovalRequest {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "traceparent", length = 128)
+    private String traceparent;
+
+    @Column(name = "tracestate", length = 512)
+    private String tracestate;
+
     @Version
     @Column(name = "version_tag", nullable = false)
     private Long version;

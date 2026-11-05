@@ -46,4 +46,10 @@ public class OutboxEvent {
 
     @Column(name="published_at")
     private Instant publishedAt;
+
+    @Column(name = "traceparent", length = 128)
+    private String traceparent;
+
+    @Column(name = "tracestate", length = 512)
+    private String tracestate;
 }

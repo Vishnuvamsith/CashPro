@@ -14,15 +14,18 @@ import java.util.UUID;
 public interface ApprovalRequestRepository extends JpaRepository<ApprovalRequest, UUID> {
     @Modifying
     @Query(value = "insert into approval.approval_requests "
-        + "(payment_id, maker_id, client_id, amount, currency, status, created_at, updated_at) "
-        + "values (:paymentId, :makerId, :clientId, :amount, :currency, 'PENDING_APPROVAL', :createdAt, :createdAt) "
+        + "(payment_id, maker_id, client_id, amount, currency, status, created_at, updated_at, traceparent, tracestate) "
+        + "values (:paymentId, :makerId, :clientId, :amount, :currency, 'PENDING_APPROVAL', :createdAt, :createdAt, "
+        + ":traceparent, :tracestate) "
         + "on conflict (payment_id) do nothing", nativeQuery = true)
     int insertIfAbsent(@Param("paymentId") UUID paymentId,
                @Param("makerId") String makerId,
                @Param("clientId") String clientId,
                @Param("amount") java.math.BigDecimal amount,
                @Param("currency") String currency,
-               @Param("createdAt") java.time.Instant createdAt);
+               @Param("createdAt") java.time.Instant createdAt,
+               @Param("traceparent") String traceparent,
+               @Param("tracestate") String tracestate);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select request from ApprovalRequest request where request.paymentId = :paymentId")

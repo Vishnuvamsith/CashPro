@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +73,9 @@ class PaymentServiceIntegrationTest {
     @Autowired
     private OutboxEventRepository outboxEventRepository;
 
+        @Autowired
+        private Tracer tracer;
+
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
@@ -122,5 +127,26 @@ class PaymentServiceIntegrationTest {
                     assertThat(event.getEventType()).isEqualTo("APPROVAL_REQUESTED");
                     assertThat(event.getStatus()).isEqualTo("PENDING");
                 });
+    }
+
+    @Test
+    void persistsActiveTraceContextWithOutboxEvent() {
+        String idemKey = "trace-integration-" + UUID.randomUUID();
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "client-trace", "debit-trace", "credit-trace",
+                new BigDecimal("125.50"), "USD");
+        Span parent = tracer.nextSpan().name("test-payment-root").start();
+        PaymentResponse response;
+        try (Tracer.SpanInScope ignored = tracer.withSpan(parent)) {
+            response = paymentService.createPayment(request, idemKey, "maker-trace");
+        } finally {
+            parent.end();
         }
+
+        assertThat(outboxEventRepository.findAll())
+                .filteredOn(event -> event.getAggregateId().equals(response.paymentId()))
+                .singleElement()
+                .satisfies(event -> assertThat(event.getTraceparent())
+                        .matches("(?i)00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}"));
+    }
 }

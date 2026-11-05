@@ -5,6 +5,7 @@ import com.cashpro.payment_service.DTO.ApprovalRequestPayload;
 import com.cashpro.payment_service.DTO.Payload;
 import com.cashpro.payment_service.DTO.PaymentResponse;
 import com.cashpro.payment_service.Configuration.ApprovalPolicyProperties;
+import com.cashpro.payment_service.Configuration.TraceContextSnapshot;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.cashpro.payment_service.Entity.OutboxEvent;
@@ -23,9 +24,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import io.micrometer.observation.annotation.Observed;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -35,10 +36,12 @@ public class PaymentService {
     private final StringRedisTemplate redisTemplate;
     private final OutboxEventRepository outboxEventRepository;
     private final ApprovalPolicyProperties approvalPolicy;
+    private final TraceContextSnapshot traceContextSnapshot;
     private final Logger log= LoggerFactory.getLogger(PaymentService.class);
     private final MeterRegistry meterRegistry;
 
     @Transactional
+    @Observed(name = "cashpro.payment.create")
     public PaymentResponse createPayment(CreatePaymentRequest data, String idemKey, String makerId) {
         String redisKey = "idem:" + idemKey;
         Timer.Sample sample = Timer.start(meterRegistry);
@@ -100,6 +103,7 @@ public class PaymentService {
     }
 
     private void enqueuePaymentReceived(Payment payment) {
+        TraceContextSnapshot.Context traceContext = traceContextSnapshot.capture();
         Payload payload = Payload.builder()
                 .paymentId(payment.getPaymentId())
                 .clientId(payment.getClientId())
@@ -113,10 +117,13 @@ public class PaymentService {
                 .eventType("PAYMENT_RECEIVED")
                 .payload(toJson(payload))
                 .status("PENDING")
+                .traceparent(traceContext.traceparent())
+                .tracestate(traceContext.tracestate())
                 .build());
     }
 
     private void enqueueApprovalRequested(Payment payment, String makerId) {
+            TraceContextSnapshot.Context traceContext = traceContextSnapshot.capture();
         ApprovalRequestPayload payload = new ApprovalRequestPayload(
                 payment.getPaymentId(), makerId, payment.getClientId(),
                 payment.getAmount(), payment.getCurrency());
@@ -126,6 +133,8 @@ public class PaymentService {
                 .eventType("APPROVAL_REQUESTED")
                 .payload(toJson(payload))
                 .status("PENDING")
+                .traceparent(traceContext.traceparent())
+                .tracestate(traceContext.tracestate())
                 .build());
     }
 

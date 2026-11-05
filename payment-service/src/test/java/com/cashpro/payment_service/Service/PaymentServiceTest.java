@@ -25,6 +25,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.cashpro.payment_service.DTO.CreatePaymentRequest;
 import com.cashpro.payment_service.DTO.PaymentResponse;
 import com.cashpro.payment_service.Configuration.ApprovalPolicyProperties;
+import com.cashpro.payment_service.Configuration.TraceContextSnapshot;
 import com.cashpro.payment_service.Entity.OutboxEvent;
 import com.cashpro.payment_service.Entity.Payment;
 import com.cashpro.payment_service.Entity.PaymentStatus;
@@ -39,6 +40,7 @@ class PaymentServiceTest {
     private ValueOperations<String, String> valueOperations;
     private OutboxEventRepository outboxEventRepository;
         private ApprovalPolicyProperties approvalPolicy;
+        private TraceContextSnapshot traceContextSnapshot;
     private PaymentService paymentService;
         private MeterRegistry meterRegistry;
 
@@ -51,9 +53,11 @@ class PaymentServiceTest {
         outboxEventRepository = mock(OutboxEventRepository.class);
         approvalPolicy = new ApprovalPolicyProperties();
         approvalPolicy.getThresholds().put("USD", new BigDecimal("1000.00"));
+        traceContextSnapshot = mock(TraceContextSnapshot.class);
+        when(traceContextSnapshot.capture()).thenReturn(new TraceContextSnapshot.Context(null, null));
         meterRegistry = new SimpleMeterRegistry();
         paymentService = new PaymentService(paymentRepository, redisTemplate, outboxEventRepository,
-                approvalPolicy, meterRegistry);
+                approvalPolicy, traceContextSnapshot, meterRegistry);
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
@@ -128,6 +132,22 @@ class PaymentServiceTest {
         verify(outboxEventRepository, never()).save(any(OutboxEvent.class));
         assertThat(meterRegistry.get("cashpro.payment.idempotency.duplicates").counter().count()).isEqualTo(1.0);
         assertThat(meterRegistry.get("cashpro.payment.outcomes").tag("outcome", "duplicate").counter().count())
+                .isEqualTo(1.0);
+    }
+
+    @Test
+    void createPaymentShouldCountAndPropagateDependencyFailure() {
+        when(valueOperations.setIfAbsent(eq("idem:failed-key"), eq("PROCESSING"), eq(Duration.ofHours(24))))
+                .thenThrow(new IllegalStateException("redis unavailable"));
+        CreatePaymentRequest request = new CreatePaymentRequest(
+                "client-1", "debit-1", "credit-1", new BigDecimal("25.00"), "USD");
+
+        assertThatThrownBy(() -> paymentService.createPayment(request, "failed-key", "maker-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("redis unavailable");
+
+        verify(redisTemplate).delete("idem:failed-key");
+        assertThat(meterRegistry.get("cashpro.payment.outcomes").tag("outcome", "failure").counter().count())
                 .isEqualTo(1.0);
     }
 

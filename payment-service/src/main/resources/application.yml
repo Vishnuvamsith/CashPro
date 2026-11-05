@@ -21,6 +21,10 @@ spring:
       port: 6379
   kafka:
     bootstrap-servers: localhost:9092,localhost:9095
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
     properties:
       "[schema.registry.url]": http://localhost:8088
     consumer:
@@ -40,7 +44,22 @@ cashpro:
     thresholds:
       USD: ${PAYMENT_APPROVAL_THRESHOLD_USD:1000.00}
 management:
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  tracing:
+    sampling:
+      probability: ${MANAGEMENT_TRACING_SAMPLING_PROBABILITY:1.0}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
+logging:
+  pattern:
+    level: "%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
