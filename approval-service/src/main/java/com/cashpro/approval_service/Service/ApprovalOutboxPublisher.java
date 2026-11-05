@@ -1,6 +1,6 @@
 package com.cashpro.approval_service.Service;
 
-import com.cashpro.approval_service.Entity.ApprovalOutboxEvent;
+import com.cashpro.approval_service.Configuration.TraceContextSnapshot;
 import com.cashpro.approval_service.Repository.ApprovalOutboxRepository;
 import com.cashpro.events.ApprovalDecisionRecorded;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +15,7 @@ import java.time.Instant;
 public class ApprovalOutboxPublisher {
     private final ApprovalOutboxRepository repository;
     private final KafkaTemplate<String, ApprovalDecisionRecorded> kafkaTemplate;
+    private final TraceContextSnapshot traceContextSnapshot;
 
     @Scheduled(fixedDelay = 2000)
     public void publishPending() {
@@ -29,12 +30,15 @@ public class ApprovalOutboxPublisher {
                     .setDecidedAtEpochMillis(payloadNode.get("decidedAtEpochMillis").asLong())
                     .setReason(payloadNode.hasNonNull("reason") ? payloadNode.get("reason").asText() : null)
                     .build();
-                kafkaTemplate.send("approval-decisions", event.getAggregateId().toString(), payload)
-                        .whenComplete((result, exception) -> {
-                            if (exception == null) {
-                                repository.markPublishedIfPending(event.getEventId(), Instant.now());
-                            }
-                        });
+                try (TraceContextSnapshot.Scope ignored = traceContextSnapshot.continueFrom(
+                        event.getTraceparent(), event.getTracestate())) {
+                    kafkaTemplate.send("approval-decisions", event.getAggregateId().toString(), payload)
+                            .whenComplete((result, exception) -> {
+                                if (exception == null) {
+                                    repository.markPublishedIfPending(event.getEventId(), Instant.now());
+                                }
+                            });
+                }
             } catch (Exception exception) {
                 // Keep failed records pending for investigation and retry.
             }

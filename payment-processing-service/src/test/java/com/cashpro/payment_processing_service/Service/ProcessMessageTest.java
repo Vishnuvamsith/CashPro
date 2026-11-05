@@ -1,6 +1,7 @@
 package com.cashpro.payment_processing_service.Service;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -62,6 +63,29 @@ class ProcessMessageTest {
         assertThat(registry.get("cashpro.kafka.messages").tag("outcome", "success").counter().count())
                 .isEqualTo(1.0);
         assertThat(registry.get("cashpro.kafka.consumer.processing").timer().count()).isEqualTo(1L);
+    }
+
+    @Test
+    void malformedTraceHeadersDoNotPreventPaymentProcessing() {
+        payloadRepo repo = mock(payloadRepo.class);
+        when(repo.save(org.mockito.ArgumentMatchers.any(PaymentProcessedModel.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        ProcessMessage processMessage = new ProcessMessage(repo, new SimpleMeterRegistry());
+        PaymentReceived paymentReceived = PaymentReceived.newBuilder()
+                .setPaymentId(UUID.randomUUID())
+                .setClientId("client-1")
+                .setAmount(new BigDecimal("12.34"))
+                .setCurrency("USD")
+                .setStatus("RECEIVED")
+                .build();
+        ConsumerRecord<String, PaymentReceived> record = new ConsumerRecord<>(
+                "payment-events", 0, 5L, "key", paymentReceived);
+        record.headers().add("traceparent", "malformed".getBytes(StandardCharsets.UTF_8));
+        record.headers().add("tracestate", "invalid state".getBytes(StandardCharsets.UTF_8));
+
+        processMessage.listen(record);
+
+        verify(repo).save(org.mockito.ArgumentMatchers.any(PaymentProcessedModel.class));
     }
 
         @Test

@@ -1,6 +1,7 @@
 package com.cashpro.payment_service.Service;
 
 import com.cashpro.events.ApprovalDecisionRecorded;
+import com.cashpro.payment_service.Configuration.TraceContextSnapshot;
 import com.cashpro.payment_service.DTO.Payload;
 import com.cashpro.payment_service.Entity.OutboxEvent;
 import com.cashpro.payment_service.Entity.Payment;
@@ -12,14 +13,17 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import io.micrometer.observation.annotation.Observed;
 
 @Service
 @RequiredArgsConstructor
 public class ApprovalDecisionConsumer {
     private final PaymentRepository paymentRepository;
     private final OutboxEventRepository outboxEventRepository;
+    private final TraceContextSnapshot traceContextSnapshot;
 
     @Transactional
+    @Observed(name = "cashpro.approval.decision.consume")
     @KafkaListener(topics = "approval-decisions", groupId = "payment-service-approval-decisions")
     public void onDecision(ApprovalDecisionRecorded event) {
         if (event == null || event.getPaymentId() == null || event.getDecision() == null) {
@@ -45,6 +49,7 @@ public class ApprovalDecisionConsumer {
                     .currency(payment.getCurrency())
                     .status(payment.getStatus().name())
                     .build();
+                    TraceContextSnapshot.Context traceContext = traceContextSnapshot.capture();
             outboxEventRepository.save(OutboxEvent.builder()
                     .aggregateType("PAYMENT")
                     .aggregateId(payment.getPaymentId())
@@ -55,7 +60,9 @@ public class ApprovalDecisionConsumer {
                             .put("amount", payload.amount().toPlainString())
                             .put("currency", payload.currency())
                             .put("status", payload.status()))
-                    .status("PENDING")
+                        .status("PENDING")
+                        .traceparent(traceContext.traceparent())
+                        .tracestate(traceContext.tracestate())
                     .build());
         } else if ("REJECTED".equals(event.getDecision())) {
             if (event.getDecidedAtEpochMillis() <= 0 || event.getApproverId() == null

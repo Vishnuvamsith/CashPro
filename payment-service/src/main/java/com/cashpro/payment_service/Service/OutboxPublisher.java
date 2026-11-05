@@ -2,6 +2,7 @@ package com.cashpro.payment_service.Service;
 
 import com.cashpro.events.ApprovalRequested;
 import com.cashpro.events.PaymentReceived;
+import com.cashpro.payment_service.Configuration.TraceContextSnapshot;
 import com.cashpro.payment_service.Repo.OutboxEventRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class OutboxPublisher {
 
     private final OutboxEventRepository repository;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final TraceContextSnapshot traceContextSnapshot;
 
     @Scheduled(fixedDelay = 5000)
     public void publishPendingEvents() {
@@ -35,14 +37,17 @@ public class OutboxPublisher {
                         Object value = "APPROVAL_REQUESTED".equals(event.getEventType())
                                 ? toApprovalRequested(payload)
                                 : toPaymentReceived(payload);
-                        kafkaTemplate.send(topic, event.getAggregateId().toString(), value)
-                                .whenComplete((result, exception) -> {
-                                    if (exception == null) {
-                                        repository.markPublishedIfPending(event.getId(), Instant.now());
-                                    } else {
-                                        System.out.println("Failed to publish event: " + event.getId());
-                                    }
-                                });
+                        try (TraceContextSnapshot.Scope ignored = traceContextSnapshot.continueFrom(
+                                event.getTraceparent(), event.getTracestate())) {
+                            kafkaTemplate.send(topic, event.getAggregateId().toString(), value)
+                                    .whenComplete((result, exception) -> {
+                                        if (exception == null) {
+                                            repository.markPublishedIfPending(event.getId(), Instant.now());
+                                        } else {
+                                            System.out.println("Failed to publish event: " + event.getId());
+                                        }
+                                    });
+                        }
                     } catch (RuntimeException exception) {
                         System.out.println("Failed to prepare event: " + event.getId());
                     }

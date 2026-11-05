@@ -1,6 +1,7 @@
 package com.cashpro.approval_service.Service;
 
 import com.cashpro.approval_service.Configuration.ApprovalProperties;
+import com.cashpro.approval_service.Configuration.TraceContextSnapshot;
 import com.cashpro.approval_service.Entity.ApprovalDecision;
 import com.cashpro.approval_service.Entity.ApprovalDecisionType;
 import com.cashpro.approval_service.Entity.ApprovalRequest;
@@ -30,6 +31,7 @@ class ApprovalServiceTest {
     private ApprovalDecisionRepository decisions;
     private ApprovalOutboxRepository outbox;
     private ApprovalProperties properties;
+    private TraceContextSnapshot traceContextSnapshot;
     private ApprovalService service;
 
     @BeforeEach
@@ -39,7 +41,9 @@ class ApprovalServiceTest {
         outbox = mock(ApprovalOutboxRepository.class);
         // Constructor takes the raw comma-separated config string
         properties = new ApprovalProperties("checker-1, checker-2");
-        service = new ApprovalService(requests, decisions, outbox, properties);
+        traceContextSnapshot = mock(TraceContextSnapshot.class);
+        when(traceContextSnapshot.capture()).thenReturn(new TraceContextSnapshot.Context(null, null));
+        service = new ApprovalService(requests, decisions, outbox, properties, traceContextSnapshot);
     }
 
     @Test
@@ -82,6 +86,21 @@ class ApprovalServiceTest {
                 .isInstanceOf(ResponseStatusException.class);
     }
 
+    @Test
+    void rejectPersistsRejectedDecisionAndOutboxEvent() {
+        UUID paymentId = UUID.randomUUID();
+        ApprovalRequest request = pendingRequest(paymentId);
+        when(requests.findByPaymentIdForUpdate(paymentId)).thenReturn(Optional.of(request));
+        when(decisions.save(any(ApprovalDecision.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = service.reject(paymentId, "checker-2", "Risk review failed");
+
+        assertThat(result.decision()).isEqualTo(ApprovalDecisionType.REJECTED);
+        assertThat(result.status()).isEqualTo(ApprovalStatus.REJECTED);
+        assertThat(request.getStatus()).isEqualTo(ApprovalStatus.REJECTED);
+        verify(outbox).save(any());
+    }
+
     // ----- new tests enabled by the immutable-Set design -----
 
     @Test
@@ -101,7 +120,7 @@ class ApprovalServiceTest {
         UUID paymentId = UUID.randomUUID();
         when(requests.findByPaymentIdForUpdate(paymentId))
                 .thenReturn(Optional.of(pendingRequest(paymentId)));
-        ApprovalService lockedDown = new ApprovalService(requests, decisions, outbox, empty);
+        ApprovalService lockedDown = new ApprovalService(requests, decisions, outbox, empty, traceContextSnapshot);
 
         assertThatThrownBy(() -> lockedDown.approve(paymentId, "checker-1", null))
                 .isInstanceOf(ResponseStatusException.class);

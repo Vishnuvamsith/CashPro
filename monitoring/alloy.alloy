@@ -1,0 +1,35 @@
+logging {
+  level = "info"
+}
+
+discovery.docker "cashpro" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "cashpro" {
+  targets = discovery.docker.cashpro.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(payment-service|approval-service|payment-processing-service|grafana|tempo|loki|prometheus|alloy)"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "cashpro" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.cashpro.output
+  labels     = { job = "cashpro" }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

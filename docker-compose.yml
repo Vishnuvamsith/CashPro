@@ -132,6 +132,40 @@ services:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards/cashpro:ro
 
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: cashpro-tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    ports:
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./monitoring/tempo.yml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: cashpro-loki
+    command: ["-config.file=/etc/loki/config.yml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.7.5
+    container_name: cashpro-alloy
+    command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
+    depends_on:
+      - loki
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./monitoring/alloy.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
   payment-service:
     profiles: [apps]
     image: cashpro/payment-service:${IMAGE_TAG:-local}
@@ -144,6 +178,7 @@ services:
       - broker1
       - broker2
       - schema-registry
+      - tempo
     ports:
       - "8080:8080"
     healthcheck:
@@ -160,6 +195,7 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker1:29092,broker2:29095
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       PAYMENT_APPROVAL_THRESHOLD_USD: ${PAYMENT_APPROVAL_THRESHOLD_USD:-1000.00}
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
 
   payment-processing-service:
     profiles: [apps]
@@ -180,6 +216,8 @@ services:
         condition: service_started
       schema-registry:
         condition: service_started
+      tempo:
+        condition: service_started
     ports:
       - "8081:8081"
     environment:
@@ -189,6 +227,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker1:29092,broker2:29095
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
 
   approval-service:
     profiles: [apps]
@@ -201,6 +240,7 @@ services:
       - broker1
       - broker2
       - schema-registry
+      - tempo
     ports:
       - "8082:8082"
     environment:
@@ -210,9 +250,12 @@ services:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: broker1:29092,broker2:29095
       SPRING_KAFKA_PROPERTIES_SCHEMA_REGISTRY_URL: http://schema-registry:8081
       APPROVAL_AUTHORIZED_USERS: ${APPROVAL_AUTHORIZED_USERS:-}
+      MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://tempo:4318/v1/traces
 
 volumes:
   postgres_data:
   controller_data:
   kafka1_data:
   kafka2_data:
+  tempo_data:
+  loki_data:

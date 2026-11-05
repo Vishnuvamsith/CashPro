@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
+import io.micrometer.observation.annotation.Observed;
 
 import com.cashpro.events.PaymentReceived;
 
@@ -23,6 +24,7 @@ public class ProcessMessage implements MessageInterface {
     private final payloadRepo repo;
     private final MeterRegistry meterRegistry;
     @KafkaListener(topics = "payment-events")
+    @Observed(name = "cashpro.payment.process")
     public void listen(ConsumerRecord<String, PaymentReceived> message) {
         Timer.Sample sample = Timer.start(meterRegistry);
         try {

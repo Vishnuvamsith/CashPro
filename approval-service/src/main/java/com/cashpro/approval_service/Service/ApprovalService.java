@@ -1,6 +1,7 @@
 package com.cashpro.approval_service.Service;
 
 import com.cashpro.approval_service.Configuration.ApprovalProperties;
+import com.cashpro.approval_service.Configuration.TraceContextSnapshot;
 import com.cashpro.approval_service.DTO.ApprovalDecisionResponse;
 import com.cashpro.approval_service.DTO.ApprovalRequestResponse;
 import com.cashpro.approval_service.Entity.ApprovalDecision;
@@ -18,6 +19,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import io.micrometer.observation.annotation.Observed;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -31,19 +33,24 @@ public class ApprovalService {
     private final ApprovalDecisionRepository decisions;
     private final ApprovalOutboxRepository outbox;
     private final ApprovalProperties properties;
+    private final TraceContextSnapshot traceContextSnapshot;
 
     @Transactional
     public void registerRequest(UUID paymentId, String makerId, String clientId, BigDecimal amount, String currency) {
         Instant now = Instant.now();
-        requests.insertIfAbsent(paymentId, makerId, clientId, amount, currency, now);
+        TraceContextSnapshot.Context traceContext = traceContextSnapshot.capture();
+        requests.insertIfAbsent(paymentId, makerId, clientId, amount, currency, now,
+            traceContext.traceparent(), traceContext.tracestate());
     }
 
     @Transactional
+    @Observed(name = "cashpro.approval.decision")
     public ApprovalDecisionResponse approve(UUID paymentId, String checkerId, String reason) {
         return decide(paymentId, checkerId, reason, ApprovalDecisionType.APPROVED);
     }
 
     @Transactional
+    @Observed(name = "cashpro.approval.decision")
     public ApprovalDecisionResponse reject(UUID paymentId, String checkerId, String reason) {
         return decide(paymentId, checkerId, reason, ApprovalDecisionType.REJECTED);
     }
@@ -78,6 +85,14 @@ public class ApprovalService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Maker cannot approve their own payment");
         }
 
+        try (TraceContextSnapshot.Scope ignored = traceContextSnapshot.continueFrom(
+                request.getTraceparent(), request.getTracestate(), "cashpro.approval.decision")) {
+            return recordDecision(request, paymentId, normalizedChecker, reason, decisionType);
+        }
+    }
+
+    private ApprovalDecisionResponse recordDecision(ApprovalRequest request, UUID paymentId, String checkerId,
+                                                     String reason, ApprovalDecisionType decisionType) {
         Instant decidedAt = Instant.now();
         ApprovalStatus nextStatus = decisionType == ApprovalDecisionType.APPROVED
                 ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
@@ -85,17 +100,19 @@ public class ApprovalService {
         request.setUpdatedAt(decidedAt);
         requests.save(request);
         ApprovalDecision decision = decisions.save(ApprovalDecision.builder()
-                .paymentId(paymentId).makerId(request.getMakerId()).approverId(normalizedChecker)
+            .paymentId(paymentId).makerId(request.getMakerId()).approverId(checkerId)
                 .decision(decisionType).decidedAt(decidedAt)
                 .reason(reason == null || reason.isBlank() ? null : reason.trim()).build());
 
         ApprovalDecisionRecorded event = ApprovalDecisionRecorded.newBuilder()
-                .setPaymentId(paymentId).setMakerId(request.getMakerId()).setApproverId(normalizedChecker)
+            .setPaymentId(paymentId).setMakerId(request.getMakerId()).setApproverId(checkerId)
                 .setDecision(decisionType.name()).setDecidedAtEpochMillis(decidedAt.toEpochMilli())
                 .setReason(decision.getReason()).build();
+        TraceContextSnapshot.Context traceContext = traceContextSnapshot.capture();
         outbox.save(ApprovalOutboxEvent.builder().eventId(UUID.randomUUID()).aggregateId(paymentId)
             .eventType("APPROVAL_DECISION_RECORDED").payload(toJson(event))
-                .status("PENDING").createdAt(decidedAt).build());
+                .status("PENDING").createdAt(decidedAt)
+                .traceparent(traceContext.traceparent()).tracestate(traceContext.tracestate()).build());
         return toResponse(decision);
     }
 
