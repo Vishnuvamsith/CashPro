@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -28,9 +28,62 @@ jobs:
           test "$1" -gt 0
           test "$2" -eq 0
           test "$3" -eq 0
-      - name: Build payment-service image
-        run: docker build --file payment-service/Dockerfile --tag cashpro/payment-service:${GITHUB_SHA} .
-      - name: Build payment-processing-service image
-        run: docker build --file payment-processing-service/Dockerfile --tag cashpro/payment-processing-service:${GITHUB_SHA} .
-      - name: Build approval-service image
-        run: docker build --file approval-service/Dockerfile --tag cashpro/approval-service:${GITHUB_SHA} .
+
+  publish:
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - payment-service
+          - payment-processing-service
+          - approval-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare lowercase GHCR namespace
+        id: image
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          owner=$(printf '%s' "$REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          echo "owner=$owner" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.image.outputs.owner }}/cashpro-${{ matrix.service }}
+          tags: |
+            type=raw,value=${{ github.sha }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Verify published image can be pulled
+        env:
+          IMAGE: ghcr.io/${{ steps.image.outputs.owner }}/cashpro-${{ matrix.service }}
+        run: docker pull "$IMAGE:${GITHUB_SHA}"
