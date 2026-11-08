@@ -44,7 +44,9 @@ To stop the stack, run `docker compose --profile apps down`. The named database 
 
 ## Continuous integration
 
-GitHub Actions runs `./mvnw clean verify` for every push and pull request. Only after the Maven reactor and tests pass does it build the service images, tagging each with the full commit SHA (for example, `cashpro/payment-service:<commit-sha>`). CI loads these images locally and does not push them to a registry.
+GitHub Actions runs `./mvnw clean verify` for every push and pull request. After verification succeeds, push and manually dispatched runs publish the payment, processing, and approval images to GHCR as `ghcr.io/<lowercase-owner>/cashpro-<service>:<full-commit-sha>`. The default branch also receives the `latest` tag; feature branches never update `latest`. Pull requests run verification but do not publish. The publish job uses the built-in `GITHUB_TOKEN` with package-write permission and verifies that the commit-SHA image can be pulled.
+
+`audit-service` and `channel-simulator` do not currently exist in this repository and have no Dockerfiles, so they are not included in the publish matrix. Add their service modules and Dockerfiles before adding them to the matrix.
 
 CI and Docker builds require no repository secrets. Credentials are passed at runtime and are not copied into the images. Do not add real credentials to application configuration, Dockerfiles, or the repository.
 
