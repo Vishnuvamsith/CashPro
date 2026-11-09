@@ -28,6 +28,16 @@ jobs:
           test "$1" -gt 0
           test "$2" -eq 0
           test "$3" -eq 0
+      - name: Upload tested service JARs
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashpro-service-jars
+          path: |
+            payment-service/target/*.jar
+            payment-processing-service/target/*.jar
+            approval-service/target/*.jar
+          if-no-files-found: error
+          retention-days: 1
 
   publish:
     needs: verify
@@ -46,6 +56,18 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download tested service JARs
+        uses: actions/download-artifact@v4
+        with:
+          name: cashpro-service-jars
+          path: .
+
+      - name: Verify tested JARs are present
+        run: |
+          test -n "$(find payment-service/target -maxdepth 1 -name '*.jar' -type f -print -quit)"
+          test -n "$(find payment-processing-service/target -maxdepth 1 -name '*.jar' -type f -print -quit)"
+          test -n "$(find approval-service/target -maxdepth 1 -name '*.jar' -type f -print -quit)"
 
       - name: Prepare lowercase GHCR namespace
         id: image
