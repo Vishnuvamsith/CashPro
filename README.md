@@ -44,7 +44,7 @@ To stop the stack, run `docker compose --profile apps down`. The named database 
 
 ## Continuous integration
 
-GitHub Actions runs `./mvnw clean verify` for every push and pull request. After verification succeeds, push and manually dispatched runs publish the payment, processing, and approval images to GHCR as `ghcr.io/<lowercase-owner>/cashpro-<service>:<full-commit-sha>`. The default branch also receives the `latest` tag; feature branches never update `latest`. Pull requests run verification but do not publish. The publish job uses the built-in `GITHUB_TOKEN` with package-write permission and verifies that the commit-SHA image can be pulled.
+GitHub Actions runs `./mvnw clean verify` for every push and pull request. After verification succeeds, the workflow uploads the tested service JARs as a short-lived artifact because the GHCR publishing job runs on a separate runner; that job restores the JARs into the Docker build context before building images. Push and manually dispatched runs publish the payment, processing, and approval images to GHCR as `ghcr.io/<lowercase-owner>/cashpro-<service>:<full-commit-sha>`. The default branch also receives the `latest` tag; feature branches never update `latest`. Pull requests run verification but do not publish. The publish job uses the built-in `GITHUB_TOKEN` with package-write permission and verifies that the commit-SHA image can be pulled.
 
 `audit-service` and `channel-simulator` do not currently exist in this repository and have no Dockerfiles, so they are not included in the publish matrix. Add their service modules and Dockerfiles before adding them to the matrix.
 
